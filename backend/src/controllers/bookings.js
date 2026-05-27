@@ -4,15 +4,11 @@ import { sendWhatsApp } from '../utils/whatsapp.js'
 
 export async function createBooking(req, res) {
   try {
-    const { patient_name, patient_phone, service, booking_date, booking_time, notes } = req.body
-
-    if (!patient_name || !patient_phone || !service || !booking_date || !booking_time) {
-      return res.status(400).json({ error: 'جميع الحقول المطلوبة يجب أن تكون مليئة' })
-    }
+    const { patient_name, patient_phone, service, booking_date, booking_time, notes } = req.validated
 
     const duplicate = await Booking.checkDuplicate(patient_phone, booking_date, booking_time)
     if (duplicate) {
-      return res.status(409).json({ error: 'لديك already حجز في هذا الموعد' })
+      return res.status(409).json({ error: 'لديك حجز بالفعل في هذا الموعد' })
     }
 
     const booking = await Booking.create({
@@ -24,7 +20,7 @@ export async function createBooking(req, res) {
       notes,
     })
 
-    // Trigger WhatsApp — non-blocking
+    // Non-blocking WhatsApp trigger
     sendWhatsApp({
       to: patient_phone,
       template: 'booking_confirmation',
@@ -35,13 +31,13 @@ export async function createBooking(req, res) {
       Booking.markWhatsappSent(booking.id, err.message)
     })
 
-    await Log.create({
+    Log.create({
       action: 'booking_created',
       entity_type: 'booking',
       entity_id: booking.id,
       details: { patient_name, patient_phone, service, booking_date },
       ip_address: req.ip,
-    })
+    }).catch(() => {})
 
     res.status(201).json({ booking })
   } catch (err) {
@@ -56,8 +52,8 @@ export async function createBooking(req, res) {
 export async function checkAvailability(req, res) {
   try {
     const { date } = req.query
-    if (!date) {
-      return res.status(400).json({ error: 'التاريخ مطلوب' })
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'التاريخ مطلوب (YYYY-MM-DD)' })
     }
 
     const bookings = await Booking.findByDate(date)

@@ -1,8 +1,8 @@
-import pool from '../config/database.js'
+import { query } from '../config/database.js'
 
 export const Log = {
   async create({ action, entity_type, entity_id, user_id, details, ip_address }) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       INSERT INTO logs (action, entity_type, entity_id, user_id, details, ip_address)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
@@ -11,7 +11,7 @@ export const Log = {
   },
 
   async findRecent(limit = 50) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       SELECT l.*, u.name AS user_name
       FROM logs l
       LEFT JOIN users u ON u.id = l.user_id

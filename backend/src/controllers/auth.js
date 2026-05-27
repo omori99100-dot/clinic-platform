@@ -6,10 +6,7 @@ import config from '../config/index.js'
 
 export async function login(req, res) {
   try {
-    const { email, password } = req.body
-    if (!email || !password) {
-      return res.status(400).json({ error: 'البريد الإلكتروني وكلمة المرور مطلوبان' })
-    }
+    const { email, password } = req.validated
 
     const user = await User.findByEmail(email)
     if (!user) {
@@ -29,14 +26,14 @@ export async function login(req, res) {
       { expiresIn: config.jwt.expiresIn }
     )
 
-    await Log.create({
+    Log.create({
       action: 'admin_login',
       entity_type: 'user',
       entity_id: user.id,
       user_id: user.id,
       details: { email: user.email },
       ip_address: req.ip,
-    })
+    }).catch(() => {})
 
     res.json({
       token,

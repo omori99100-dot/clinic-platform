@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { adminApi } from '../services/api'
 
@@ -17,6 +18,7 @@ const statusLabels = {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [bookings, setBookings] = useState([])
   const [stats, setStats] = useState({ summary: {}, daily: [] })
@@ -71,7 +73,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     logout()
-    window.location.href = '/'
+    navigate('/', { replace: true })
   }
 
   const { summary, daily } = stats

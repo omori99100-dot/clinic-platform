@@ -1,4 +1,4 @@
-require('dotenv').config()
+import 'dotenv/config'
 
 const config = {
   port: parseInt(process.env.PORT, 10) || 4000,

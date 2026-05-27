@@ -1,8 +1,8 @@
-import pool from '../config/database.js'
+import { query } from '../config/database.js'
 
 export const Booking = {
   async create(data) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       INSERT INTO bookings (patient_name, patient_phone, service, booking_date, booking_time, notes)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
@@ -11,12 +11,12 @@ export const Booking = {
   },
 
   async findById(id) {
-    const { rows } = await pool.query('SELECT * FROM bookings WHERE id = $1', [id])
+    const { rows } = await query('SELECT * FROM bookings WHERE id = $1', [id])
     return rows[0] || null
   },
 
   async findByDate(date) {
-    const { rows } = await pool.query(
+    const { rows } = await query(
       'SELECT * FROM bookings WHERE booking_date = $1 ORDER BY booking_time ASC',
       [date]
     )
@@ -40,10 +40,10 @@ export const Booking = {
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
     const offset = (page - 1) * limit
 
-    const countResult = await pool.query(`SELECT COUNT(*) FROM bookings ${where}`, params)
+    const countResult = await query(`SELECT COUNT(*) FROM bookings ${where}`, params)
     const total = parseInt(countResult.rows[0].count, 10)
 
-    const { rows } = await pool.query(
+    const { rows } = await query(
       `SELECT * FROM bookings ${where} ORDER BY booking_date DESC, booking_time DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     )
@@ -52,7 +52,7 @@ export const Booking = {
   },
 
   async updateStatus(id, status) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       UPDATE bookings SET status = $1 WHERE id = $2 RETURNING *
     `, [status, id])
     return rows[0] || null
@@ -60,20 +60,20 @@ export const Booking = {
 
   async markWhatsappSent(id, error = null) {
     if (error) {
-      await pool.query(
+      await query(
         'UPDATE bookings SET whatsapp_sent = false, whatsapp_error = $1 WHERE id = $2',
         [error, id]
       )
     } else {
-      await pool.query(
-        'UPDATE bookings SET whatsapp_sent = true, whatsapp_error = NULL WHERE id = $2',
+      await query(
+        'UPDATE bookings SET whatsapp_sent = true, whatsapp_error = NULL WHERE id = $1',
         [id]
       )
     }
   },
 
   async delete(id) {
-    const { rows } = await pool.query(
+    const { rows } = await query(
       'DELETE FROM bookings WHERE id = $1 RETURNING id',
       [id]
     )
@@ -81,7 +81,7 @@ export const Booking = {
   },
 
   async checkDuplicate(phone, date, time) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       SELECT id FROM bookings
       WHERE patient_phone = $1 AND booking_date = $2 AND booking_time = $3 AND status != 'cancelled'
       LIMIT 1
@@ -90,7 +90,7 @@ export const Booking = {
   },
 
   async getStats(startDate, endDate) {
-    const { rows } = await pool.query(`
+    const { rows } = await query(`
       SELECT
         booking_date,
         COUNT(*) AS total,
@@ -104,6 +104,11 @@ export const Booking = {
       ORDER BY booking_date ASC
     `, [startDate, endDate])
     return rows
+  },
+  },
+
+  async refreshStats() {
+    await query('REFRESH MATERIALIZED VIEW CONCURRENTLY daily_stats')
   },
 }
 

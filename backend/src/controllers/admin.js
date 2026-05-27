@@ -91,6 +91,8 @@ export async function getAnalytics(req, res) {
     const end = end_date || new Date().toISOString().split('T')[0]
     const start = start_date || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
 
+    Booking.refreshStats().catch(() => {})
+
     const stats = await Booking.getStats(start, end)
 
     const summary = stats.reduce((acc, row) => {

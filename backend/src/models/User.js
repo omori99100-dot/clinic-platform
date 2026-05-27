@@ -1,8 +1,8 @@
-import pool from '../config/database.js'
+import { query } from '../config/database.js'
 
 export const User = {
   async findByEmail(email) {
-    const { rows } = await pool.query(
+    const { rows } = await query(
       'SELECT * FROM users WHERE email = $1 AND is_active = true',
       [email]
     )
@@ -10,7 +10,7 @@ export const User = {
   },
 
   async findById(id) {
-    const { rows } = await pool.query(
+    const { rows } = await query(
       'SELECT id, name, email, role, last_login, created_at FROM users WHERE id = $1',
       [id]
     )
@@ -18,7 +18,7 @@ export const User = {
   },
 
   async updateLastLogin(id) {
-    await pool.query(
+    await query(
       'UPDATE users SET last_login = NOW() WHERE id = $1',
       [id]
     )
