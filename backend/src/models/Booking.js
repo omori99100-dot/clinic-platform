@@ -105,7 +105,6 @@ export const Booking = {
     `, [startDate, endDate])
     return rows
   },
-  },
 
   async refreshStats() {
     await query('REFRESH MATERIALIZED VIEW CONCURRENTLY daily_stats')
