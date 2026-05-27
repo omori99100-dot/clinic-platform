@@ -17,7 +17,7 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-  origin: [config.cors.frontendUrl, 'https://clinic-site-sand-six.vercel.app', 'http://localhost:5173'],
+    origin: [config.cors.frontendUrl, 'https://frontend-sandy-omega-3vcyr9e45t.vercel.app', 'http://localhost:5173'],
   credentials: true,
 }))
 

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https://clinic-api-production.up.railway.app/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://clinic-api-henna.vercel.app/api'
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('adminToken')
