@@ -1,12 +1,13 @@
 import { Pool } from 'pg'
 import config from './index.js'
 
+const isPooler = config.database.url?.includes('pooler.supabase.com')
 const pool = new Pool({
   connectionString: config.database.url,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  statement_timeout: 10000,
+  ...(isPooler ? {} : { statement_timeout: 10000 }),
 })
 
 pool.on('error', (err) => {
