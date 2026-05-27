@@ -4,6 +4,15 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [active, setActive] = useState('home')
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setIsMobile(mq.matches)
+    const handler = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   useEffect(() => {
     const onScroll = () => {
@@ -44,7 +53,7 @@ export default function Navbar() {
 
         <ul className={`flex items-center gap-2 list-none`}
           style={{
-            display: 'flex', alignItems: 'center', gap: '8px', listStyle: 'none', margin: 0
+            display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '8px', listStyle: 'none', margin: 0
           }}>
           {links.map(l => (
             <li key={l.id}>
@@ -72,7 +81,10 @@ export default function Navbar() {
         </ul>
 
         <div className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}
-          style={{ display: 'none', flexDirection: 'column', gap: '5px', cursor: 'pointer', padding: '5px' }}>
+          style={{
+            display: isMobile ? 'flex' : 'none',
+            flexDirection: 'column', gap: '5px', cursor: 'pointer', padding: '5px'
+          }}>
           <span style={{
             width: '28px', height: '3px', background: 'var(--text-dark)',
             borderRadius: '3px', transition: 'var(--transition)',
