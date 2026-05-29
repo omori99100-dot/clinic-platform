@@ -1,24 +1,15 @@
-import { query } from '../config/database.js'
+import { createClient } from '@supabase/supabase-js'
+import config from '../config/index.js'
+
+const supabase = createClient(config.supabase.url, config.supabase.serviceKey, {
+  auth: { persistSession: false },
+})
 
 export const Log = {
-  async create({ action, entity_type, entity_id, user_id, details, ip_address }) {
-    const { rows } = await query(`
-      INSERT INTO logs (action, entity_type, entity_id, user_id, details, ip_address)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id
-    `, [action, entity_type, entity_id, user_id, JSON.stringify(details || {}), ip_address])
-    return rows[0].id
-  },
-
-  async findRecent(limit = 50) {
-    const { rows } = await query(`
-      SELECT l.*, u.name AS user_name
-      FROM logs l
-      LEFT JOIN users u ON u.id = l.user_id
-      ORDER BY l.created_at DESC
-      LIMIT $1
-    `, [limit])
-    return rows
+  async create(data) {
+    const { data: inserted, error } = await supabase.from('logs').insert(data).select('*').maybeSingle()
+    if (error) throw error
+    return inserted
   },
 }
 

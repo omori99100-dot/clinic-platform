@@ -6,6 +6,10 @@ const config = {
   database: {
     url: process.env.DATABASE_URL,
   },
+  supabase: {
+    url: process.env.SUPABASE_URL || 'https://afknalwidokryxxkryvq.supabase.co',
+    serviceKey: process.env.SUPABASE_SERVICE_KEY,
+  },
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

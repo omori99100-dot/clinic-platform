@@ -1,27 +1,25 @@
-import { query } from '../config/database.js'
+import { createClient } from '@supabase/supabase-js'
+import config from '../config/index.js'
+
+const supabase = createClient(config.supabase.url, config.supabase.serviceKey, {
+  auth: { persistSession: false },
+})
 
 export const User = {
   async findByEmail(email) {
-    const { rows } = await query(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
-      [email]
-    )
-    return rows[0] || null
+    const { data, error } = await supabase.from('users').select('*').eq('email', email).eq('is_active', true).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async findById(id) {
-    const { rows } = await query(
-      'SELECT id, name, email, role, last_login, created_at FROM users WHERE id = $1',
-      [id]
-    )
-    return rows[0] || null
+    const { data, error } = await supabase.from('users').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async updateLastLogin(id) {
-    await query(
-      'UPDATE users SET last_login = NOW() WHERE id = $1',
-      [id]
-    )
+    await supabase.from('users').update({ last_login: new Date().toISOString() }).eq('id', id)
   },
 }
 

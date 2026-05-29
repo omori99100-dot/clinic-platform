@@ -1,113 +1,111 @@
-import { query } from '../config/database.js'
+import { createClient } from '@supabase/supabase-js'
+import config from '../config/index.js'
+
+const supabase = createClient(config.supabase.url, config.supabase.serviceKey, {
+  auth: { persistSession: false },
+})
 
 export const Booking = {
   async create(data) {
-    const { rows } = await query(`
-      INSERT INTO bookings (patient_name, patient_phone, service, booking_date, booking_time, notes)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [data.patient_name, data.patient_phone, data.service, data.booking_date, data.booking_time, data.notes || ''])
-    return rows[0]
+    const { data: inserted, error } = await supabase
+      .from('bookings').insert({
+        patient_name: data.patient_name,
+        patient_phone: data.patient_phone,
+        service: data.service,
+        booking_date: data.booking_date,
+        booking_time: data.booking_time,
+        notes: data.notes || '',
+      }).select('*').maybeSingle()
+    if (error) throw error
+    return inserted
   },
 
   async findById(id) {
-    const { rows } = await query('SELECT * FROM bookings WHERE id = $1', [id])
-    return rows[0] || null
+    const { data, error } = await supabase.from('bookings').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async findByDate(date) {
-    const { rows } = await query(
-      'SELECT * FROM bookings WHERE booking_date = $1 ORDER BY booking_time ASC',
-      [date]
-    )
-    return rows
+    const { data, error } = await supabase
+      .from('bookings').select('*').eq('booking_date', date).order('booking_time', { ascending: true })
+    if (error) throw error
+    return data || []
   },
 
   async findAll({ date, status, page = 1, limit = 50 } = {}) {
-    const conditions = []
-    const params = []
-    let paramIdx = 1
-
-    if (date) {
-      conditions.push(`booking_date = $${paramIdx++}`)
-      params.push(date)
+    let q = supabase.from('bookings').select('*', { count: 'exact' })
+    if (date) q = q.eq('booking_date', date)
+    if (status) q = q.eq('status', status)
+    q = q.order('booking_date', { ascending: false }).order('booking_time', { ascending: false })
+    const from = (page - 1) * limit
+    q = q.range(from, from + limit - 1)
+    const { data, error, count } = await q
+    if (error) throw error
+    return {
+      rows: data || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit),
     }
-    if (status) {
-      conditions.push(`status = $${paramIdx++}`)
-      params.push(status)
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-    const offset = (page - 1) * limit
-
-    const countResult = await query(`SELECT COUNT(*) FROM bookings ${where}`, params)
-    const total = parseInt(countResult.rows[0].count, 10)
-
-    const { rows } = await query(
-      `SELECT * FROM bookings ${where} ORDER BY booking_date DESC, booking_time DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
-      [...params, limit, offset]
-    )
-
-    return { rows, total, page, limit, totalPages: Math.ceil(total / limit) }
   },
 
   async updateStatus(id, status) {
-    const { rows } = await query(`
-      UPDATE bookings SET status = $1 WHERE id = $2 RETURNING *
-    `, [status, id])
-    return rows[0] || null
+    const { data, error } = await supabase
+      .from('bookings').update({ status }).eq('id', id).select('*').maybeSingle()
+    if (error) throw error
+    return data
   },
 
-  async markWhatsappSent(id, error = null) {
-    if (error) {
-      await query(
-        'UPDATE bookings SET whatsapp_sent = false, whatsapp_error = $1 WHERE id = $2',
-        [error, id]
-      )
-    } else {
-      await query(
-        'UPDATE bookings SET whatsapp_sent = true, whatsapp_error = NULL WHERE id = $1',
-        [id]
-      )
-    }
+  async markWhatsappSent(id, errorVal = null) {
+    const update = errorVal
+      ? { whatsapp_sent: false, whatsapp_error: errorVal }
+      : { whatsapp_sent: true, whatsapp_error: null }
+    const { error } = await supabase.from('bookings').update(update).eq('id', id)
+    if (error) throw error
   },
 
   async delete(id) {
-    const { rows } = await query(
-      'DELETE FROM bookings WHERE id = $1 RETURNING id',
-      [id]
-    )
-    return rows[0] || null
+    const { data, error } = await supabase.from('bookings').delete().eq('id', id).select('id').maybeSingle()
+    if (error) throw error
+    return data
   },
 
   async checkDuplicate(phone, date, time) {
-    const { rows } = await query(`
-      SELECT id FROM bookings
-      WHERE patient_phone = $1 AND booking_date = $2 AND booking_time = $3 AND status != 'cancelled'
-      LIMIT 1
-    `, [phone, date, time])
-    return rows.length > 0
+    const { data, error } = await supabase
+      .from('bookings').select('id').eq('patient_phone', phone).eq('booking_date', date)
+      .eq('booking_time', time).neq('status', 'cancelled').limit(1)
+    if (error) throw error
+    return (data || []).length > 0
   },
 
   async getStats(startDate, endDate) {
-    const { rows } = await query(`
-      SELECT
-        booking_date,
-        COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed,
-        COUNT(*) FILTER (WHERE status = 'completed') AS completed,
-        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
-        COUNT(*) FILTER (WHERE status = 'pending') AS pending
-      FROM bookings
-      WHERE booking_date >= $1 AND booking_date <= $2
-      GROUP BY booking_date
-      ORDER BY booking_date ASC
-    `, [startDate, endDate])
-    return rows
+    const { data, error } = await supabase.rpc('get_booking_stats', {
+      start_date: startDate, end_date: endDate,
+    })
+    if (error) {
+      const { data: fallback, error: fbError } = await supabase
+        .from('bookings').select('booking_date, status')
+        .gte('booking_date', startDate).lte('booking_date', endDate)
+      if (fbError) throw fbError
+      const map = {}
+      for (const row of fallback || []) {
+        if (!map[row.booking_date]) map[row.booking_date] = { booking_date: row.booking_date, total: 0, confirmed: 0, completed: 0, cancelled: 0, pending: 0 }
+        map[row.booking_date].total++
+        map[row.booking_date][row.status] = (map[row.booking_date][row.status] || 0) + 1
+      }
+      return Object.values(map).sort((a, b) => a.booking_date < b.booking_date ? -1 : 1)
+    }
+    return data || []
   },
 
   async refreshStats() {
-    await query('REFRESH MATERIALIZED VIEW CONCURRENTLY daily_stats')
+    try {
+      await supabase.rpc('refresh_booking_stats')
+    } catch (e) {
+      console.error('refreshStats failed:', e.message)
+    }
   },
 }
 
